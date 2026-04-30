@@ -1,66 +1,68 @@
 # Sentra — Cyber Resilience Command
 
-> Threat monitoring, AI-assisted incident triage, security posture scoring, and policy-gated response — governed cybersecurity command for enterprise security teams.
+  > Governed security and threat intelligence pack — recursive threat modeling, regulated monitoring, evidence-bound decision artifacts.
 
-[![CI](https://github.com/szl-holdings/szl-holdings-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/szl-holdings/szl-holdings-platform/actions/workflows/ci.yml)
-[![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+  [![CI](https://github.com/szl-holdings/szl-holdings-platform/actions/workflows/ci.yml/badge.svg)](https://github.com/szl-holdings/szl-holdings-platform/actions/workflows/ci.yml)
+  [![TypeScript](https://img.shields.io/badge/TypeScript-5.9-3178C6?style=flat-square&logo=typescript&logoColor=white)](https://www.typescriptlang.org/)
+  [![Gov Readiness](https://img.shields.io/badge/NYSTEC%20readiness-68%2F100-2da44e?style=flat-square)](https://github.com/szl-holdings/ouroboros/blob/main/docs/audit/szl-government-readiness.md)
 [![License](https://img.shields.io/badge/license-Proprietary-red?style=flat-square)](../../LICENSE.md)
 
-[Live Demo](https://szlholdings.com) · [Platform Demo Video](https://szlholdings.com/szl-demo-video/) · [Investor Dashboard](https://szlholdings.com/stephen/investor) · [Architecture](../../docs/architecture/architecture.md)
+  [Live Demo](https://szlholdings.com) · [Platform Demo Video](https://szlholdings.com/szl-demo-video/) · [Investor Dashboard](https://szlholdings.com/stephen/investor) · [Architecture](../../docs/architecture/architecture.md)
 
-![Sentra — Cyber Resilience Command](../../.github/assets/screenshots/sentra-hero.jpg)
+  ![Sentra — Cyber Resilience Command](../../.github/assets/screenshots/sentra-hero.jpg)
 
----
+  ---
+  ## What it does
 
-## What it does
+  Sentra is the **governed security and threat intelligence pack** within the A11oy ecosystem, providing recursive threat modeling, regulated monitoring, security review, escalation workflows, and evidence-bound decision artifacts. Every Sentra conclusion ships with primary-source hash, source attribution, and an audit trail that survives replay.
 
-Sentra is the cyber resilience domain pack for the SZL Holdings platform. It gives security teams a governed command surface for active threat monitoring, AI-assisted incident triage, cross-environment posture scoring, and policy-gated response actions — all under the Proof Chain and Covenant Policy infrastructure that governs every SZL Holdings product.
+  ## Government readiness — 68/100
 
-Where traditional SIEMs generate alert volume, Sentra generates governed decisions. Every threat is triaged by AI, every response action requires human approval, and every disposition is recorded in the immutable Proof Chain with full actor attribution.
+  April 30, 2026 NYSTEC pre-briefing audit. Very strong architecture and proof chain; needs SOC 2 Type II and formal runbooks before federal/state security reviews.
 
-## Run locally
+  | Capability | Government alignment |
+  |---|---|
+  | Recursive threat loop with risk tiers R1–R4 | NIST AI RMF MEASURE + MANAGE functions |
+  | Evidence pack generation | DoD documentation requirements |
+  | SHA-256 primary-source hash via Katzilla | Chain-of-custody for FDA, FEMA, Federal Register |
+  | Forced escalation at R4_critical | DoD Governable tenet / GSA human oversight |
+  | `VAL_SECURITY_PROOF_REQUIRED` validator | No security conclusions without evidence |
+  | `VAL_APPROVAL_FOR_CRITICAL_ACTION` validator | Human-in-the-loop for high-stakes actions |
 
-```bash
-# From the monorepo root
-pnpm install
-pnpm --filter @workspace/api-server dev   # Start the API server first
-pnpm --filter @workspace/sentra dev
-```
+  **Best-fit government use cases**: cybersecurity monitoring for state/local agencies (the NY Joint Security Operations Center covers 95,000 computers); regulatory signal monitoring via primary-source Katzilla feeds; DoD/defense subcontracting through the NYSTEC network; audit-support services using Sentra receipts as audit evidence.
 
-**Primary route:** `/sentra/`
+  **Open gaps** (documentation/certification): SOC 2 Type II, incident response runbook, formal threat-feed catalog, penetration testing.
 
-## Key modules
+  ## Run locally
 
-| Module | Route | Purpose |
-|--------|-------|---------|
-| Threat Monitor | `/sentra/threats` | Real-time threat detection and severity scoring |
-| Incident Triage | `/sentra/incidents` | AI-assisted prioritization with Proof Chain |
-| Posture Dashboard | `/sentra/posture` | Cross-environment security posture overview |
-| Guardian Actions | `/sentra/guardian` | Human-in-the-loop response approvals |
-| Compliance Tracker | `/sentra/compliance` | Policy adherence and audit-ready reports |
+  ```bash
+  pnpm install
+  pnpm --filter @workspace/api-server dev   # API server first
+  pnpm --filter @workspace/sentra dev
+  ```
 
-## Tech stack
+  **Primary route:** `/sentra/`
 
-React 19 + Vite 7 + TypeScript (strict) · Express 5 (shared API server) · PostgreSQL 16 / Drizzle ORM · Multi-provider AI (Anthropic, OpenAI, Gemini) · OIDC/PKCE auth · Proof Chain audit trail
+  ## Tech stack
 
-## Architecture reference
+  React 19 + Vite 7 + TypeScript (strict) · Express 5 (shared API server) · PostgreSQL 16 / Drizzle ORM · Recursive threat-loop kernel · Katzilla primary-source feeds (FDA, FEMA, Federal Register, CourtListener)
+  
+  ---
 
-Full system architecture: [`docs/architecture/architecture.md`](../../docs/architecture/architecture.md)
+  **SZL Holdings** · [szlholdings.com](https://szlholdings.com) · [inquiries@szlholdings.com](mailto:inquiries@szlholdings.com)
 
----
+  ---
+  ## About this repository
 
-**SZL Holdings** · [szlholdings.com](https://szlholdings.com) · [security@szlholdings.com](mailto:security@szlholdings.com)
+  This is a public showcase of one product in the [SZL Holdings platform](https://github.com/szl-holdings/szl-holdings-platform) monorepo. It mirrors the README from the platform artifact directory; the canonical, version-controlled source — including the React app, tests, and infrastructure — lives in the platform repo.
 
+  All seven products share the same governed substrate:
 
----
-## About this repository
+  - **[`@workspace/ouroboros`](https://github.com/szl-holdings/ouroboros)** — bounded loops with measurable convergence, v6 ecosystem layer, government readiness module (**133/133 tests**)
+  - **[`@workspace/codex-kernel`](https://github.com/szl-holdings/szl-holdings-platform/tree/master/packages/codex-kernel)** — decision receipts, validators, replay, trace-hash verification
+  - **The Ouroboros Thesis** — [`szl-holdings/ouroboros-thesis`](https://github.com/szl-holdings/ouroboros-thesis) — architectural rationale + v6 operational contract
 
-This is a public showcase of one product in the [SZL Holdings platform](https://github.com/szl-holdings/szl-holdings-platform) monorepo. It mirrors the README from the platform artifact directory; the canonical, version-controlled source — including the React app, tests, and infrastructure — lives in the platform repo.
+  Government readiness audit (NYSTEC pre-briefing, 2026-04-30): [`docs/audit/szl-government-readiness.md`](https://github.com/szl-holdings/ouroboros/blob/main/docs/audit/szl-government-readiness.md)
 
-All seven products share the same operational substrate:
-
-- **[`@workspace/ouroboros`](https://github.com/szl-holdings/ouroboros)** — bounded loops with measurable convergence; proof-route resolver, risk-tier escalation gate, and almanac cycle advancer.
-- **[`@workspace/codex-kernel`](https://github.com/szl-holdings/szl-holdings-platform/tree/main/packages/codex-kernel)** — decision receipts, validators, replay, and trace-hash verification.
-- **The Ouroboros Thesis v2** — [`szl-holdings/ouroboros-thesis`](https://github.com/szl-holdings/ouroboros-thesis) — the architectural rationale.
-
-© 2026 SZL Holdings. All rights reserved.
+  © 2026 SZL Holdings. All rights reserved.
+  

@@ -9,7 +9,7 @@
 
   [Live Demo](https://szlholdings.com) · [Platform Demo Video](https://szlholdings.com/szl-demo-video/) · [Investor Dashboard](https://szlholdings.com/stephen/investor) · [Architecture](../../docs/architecture/architecture.md)
 
-  ![Sentra — Cyber Resilience Command](../../.github/assets/screenshots/sentra-hero.jpg)
+  ![Sentra — Cyber Resilience Command](https://raw.githubusercontent.com/szl-holdings/.github/main/assets/screenshots/sentra-dashboard.jpg)
 
   ---
   ## What it does

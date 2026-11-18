@@ -26,24 +26,26 @@ from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 
 ORGAN = "sentra"
 SCHEMA = "szl.organ.healthz/v2"
-TRACEPARENT = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-0([0-9a-f])")
+TRACEPARENT = re.compile(r"00-([0-9a-f]{32})-([0-9a-f]{16})-([0-9a-f]{2})")
 MAX_EXPORT_SECONDS = 2.0
 
 
 def _otlp_endpoint(raw):
     """Admit only loopback or cluster-local DNS OTLP endpoints. Fail closed."""
-    if not raw or not raw.isascii() or any(c.isspace() or ord(c) < 32 for c in raw):
+    if (type(raw) is not str or not raw or not raw.isascii()
+            or any(c.isspace() or ord(c) < 32 for c in raw)):
         return None
-    parsed = urllib.parse.urlsplit(raw)
-    if parsed.scheme != "http" or parsed.username or parsed.password:
+    try:
+        parsed = urllib.parse.urlsplit(raw)
+        if parsed.scheme != "http" or parsed.username or parsed.password:
+            return None
+        if parsed.query or parsed.fragment or parsed.path not in ("", "/"):
+            return None
+        host = (parsed.hostname or "").strip(".")
+        port = parsed.port
+    except ValueError:  # malformed bracket/port cannot reach the network
         return None
-    if parsed.query or parsed.fragment or parsed.path not in ("", "/"):
-        return None
-    host = (parsed.hostname or "").strip(".")
-    if not host:
-        return None
-    port = parsed.port
-    if port is None or not 1 <= port <= 65535:
+    if not host or port is None or not 1 <= port <= 65535:
         return None
     if host == "localhost":
         return raw
@@ -55,6 +57,20 @@ def _otlp_endpoint(raw):
     if host.endswith(".svc") or host.endswith(".svc.cluster.local"):
         return raw
     return None
+
+
+class _NoRedirect(urllib.request.HTTPRedirectHandler):
+    """Never follow a collector-controlled Location to another origin."""
+
+    def redirect_request(self, request, fp, code, msg, headers, newurl):
+        return None
+
+
+def _otlp_opener():
+    """Ignore host proxy environment and refuse all redirects for OTLP."""
+    return urllib.request.build_opener(
+        urllib.request.ProxyHandler({}), _NoRedirect()
+    )
 
 
 def export_span(trace_id, span_id, parent_span_id, started_ns, ended_ns):
@@ -92,7 +108,7 @@ def export_span(trace_id, span_id, parent_span_id, started_ns, ended_ns):
     try:
         request = urllib.request.Request(url, data=body, method="POST",
                                          headers={"Content-Type": "application/json"})
-        with urllib.request.urlopen(request, timeout=MAX_EXPORT_SECONDS) as response:
+        with _otlp_opener().open(request, timeout=MAX_EXPORT_SECONDS) as response:
             if 200 <= response.status < 300:
                 return None
             return "OTLP_HTTP_ERROR"
@@ -123,30 +139,42 @@ class Handler(BaseHTTPRequestHandler):
         self._respond(code, body)
 
     def do_GET(self):
-        path = urllib.parse.urlsplit(self.path).path
-        if path != "/healthz":
+        if self.path != "/healthz":
             self._reject(404, "route_not_found")
             return
-        header = (self.headers.get("traceparent") or "").strip()
-        match = TRACEPARENT.fullmatch(header)
-        if not header:
-            # Plain health poll (acceptance step 3, readiness): honest health,
-            # no trace context, no echo, no span.
+        headers = self.headers.get_all("traceparent", [])
+        if not headers:
+            # Plain health poll is reachability, not evidence of trace continuity.
             body = json.dumps({"schema": SCHEMA, "organ": ORGAN, "status": "ok",
                                "trace_context": False}).encode("utf-8")
             self._respond(200, body)
             return
-        if not match:
+        if len(headers) != 1:
+            self._reject(400, "traceparent_invalid")
+            return
+        header = headers[0]
+        match = TRACEPARENT.fullmatch(header)
+        if (not match
+            or match.group(1) == "0" * 32
+            or match.group(2) == "0" * 16
+            or not (int(match.group(3), 16) & 1)):
             self._reject(400, "traceparent_invalid")
             return
         trace_id, parent_span_id = match.group(1), match.group(2)
         span_id = secrets.token_hex(8)
+        if len(span_id) != 16 or span_id == "0" * 16:
+            self._reject(503, "trace_span_unavailable")
+            return
         started = time.time_ns()
-        error = export_span(trace_id, span_id, parent_span_id, started, started)
-        ended = time.time_ns()
+        # The served request's real measured duration must be positive.
+        ended = max(started + 1, time.time_ns())
+        error = export_span(trace_id, span_id, parent_span_id, started, ended)
+        if error is not None:
+            # Fail closed: a 200 plus an echoed traceparent cannot imply export.
+            self._reject(503, "trace_export_unavailable")
+            return
         body = json.dumps({"schema": SCHEMA, "organ": ORGAN, "status": "ok",
-                           "trace_context": True,
-                           "span_exported": error is None}).encode("utf-8")
+                           "trace_context": True, "span_exported": True}).encode("utf-8")
         self._respond(200, body, extra={"traceparent": "00-%s-%s-01" % (trace_id, span_id)})
 
     def do_POST(self):

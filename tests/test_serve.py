@@ -67,7 +67,7 @@ class OrganContractTests(unittest.TestCase):
         cls.collector = ThreadingHTTPServer(("127.0.0.1", 0), Collector)
         cls.collector_port = cls.collector.server_address[1]
         threading.Thread(target=cls.collector.serve_forever, daemon=True).start()
-        os.environ["SZL_OTLP_ENDPOINT"] = "http://127.0.0.1:%d" % cls.collector_port
+        os.environ["OTEL_EXPORTER_OTLP_ENDPOINT"] = "http://127.0.0.1:%d" % cls.collector_port
         cls.server = ThreadingHTTPServer(("127.0.0.1", 0), serve.Handler)
         cls.port = cls.server.server_address[1]
         threading.Thread(target=cls.server.serve_forever, daemon=True).start()

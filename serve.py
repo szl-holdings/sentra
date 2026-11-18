@@ -59,7 +59,10 @@ def _otlp_endpoint(raw):
 
 def export_span(trace_id, span_id, parent_span_id, started_ns, ended_ns):
     """Export one honest SERVER span for the request actually served."""
-    endpoint = _otlp_endpoint(os.environ.get("SZL_OTLP_ENDPOINT", ""))
+    endpoint = _otlp_endpoint(
+        os.environ.get("OTEL_EXPORTER_OTLP_ENDPOINT", "")
+        or os.environ.get("SZL_OTLP_ENDPOINT", "")
+    )
     if endpoint is None:
         return "OTLP_ENDPOINT_NOT_CONFIGURED"
     payload = {

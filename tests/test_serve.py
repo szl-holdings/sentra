@@ -18,6 +18,8 @@ import unittest
 import urllib.request
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
+from unittest.mock import patch
+import http.client
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 import serve  # noqa: E402
@@ -58,6 +60,25 @@ class EndpointPolicyTests(unittest.TestCase):
         self.assertIsNone(serve._otlp_endpoint(""))
         self.assertIsNone(serve._otlp_endpoint("http://user:pw@opentelemetry-collector.szl.svc:4318"))
         self.assertIsNone(serve._otlp_endpoint("http://opentelemetry-collector.szl.svc"))
+
+    def test_malformed_ports_and_types_deny_instead_of_crashing(self):
+        for endpoint in (None, 42, [], "http://localhost:bad",
+                         "http://localhost:65536", "http://[::1",
+                         "http://example.svc:9999999"):
+            with self.subTest(endpoint=endpoint):
+                self.assertIsNone(serve._otlp_endpoint(endpoint))
+
+    def test_no_proxies_used_even_when_environment_injects_proxy(self):
+        builder = urllib.request.build_opener
+        with patch.dict(os.environ, {"HTTP_PROXY": "http://127.0.0.1:9999",
+                                     "http_proxy": "http://127.0.0.1:9999"}):
+            with patch.object(serve.urllib.request, "build_opener", wraps=builder) as build:
+                serve._otlp_opener()
+                supplied = build.call_args.args
+                handlers = [h for h in supplied if isinstance(h, urllib.request.ProxyHandler)]
+                self.assertEqual(len(handlers), 1)
+                self.assertEqual(handlers[0].proxies, {})
+                self.assertTrue(any(isinstance(h, serve._NoRedirect) for h in supplied))
 
 
 class OrganContractTests(unittest.TestCase):
@@ -112,10 +133,101 @@ class OrganContractTests(unittest.TestCase):
 
     def test_healthz_rejects_invalid_traceparent(self):
         for bad in ("garbage", "ff-" + "a" * 32 + "-" + "b" * 16 + "-01",
-                    "00-" + "A" * 32 + "-" + "b" * 16 + "-01"):
+                    "00-" + "A" * 32 + "-" + "b" * 16 + "-01",
+                    "00-" + "0" * 32 + "-" + "b" * 16 + "-01",
+                    "00-" + "a" * 32 + "-" + "0" * 16 + "-01",
+                    "00-" + "a" * 32 + "-" + "b" * 16 + "-00",
+                    TRACEPARENT + " "):
             status, _, body = self.request(headers={"traceparent": bad})
             self.assertEqual(status, 400, bad[:20])
             self.assertEqual(json.loads(body)["reason"], "traceparent_invalid")
+
+    def test_duplicate_traceparent_denied(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        try:
+            connection.putrequest("GET", "/healthz")
+            connection.putheader("traceparent", TRACEPARENT)
+            connection.putheader("traceparent", TRACEPARENT)
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 400)
+            self.assertEqual(json.loads(response.read())["reason"], "traceparent_invalid")
+        finally:
+            connection.close()
+
+    def test_empty_traceparent_header_denied(self):
+        connection = http.client.HTTPConnection("127.0.0.1", self.port, timeout=5)
+        try:
+            connection.putrequest("GET", "/healthz")
+            connection.putheader("traceparent", "")
+            connection.endheaders()
+            response = connection.getresponse()
+            self.assertEqual(response.status, 400)
+            self.assertEqual(json.loads(response.read())["reason"], "traceparent_invalid")
+        finally:
+            connection.close()
+
+    def test_export_failure_fails_closed_without_echo(self):
+        with patch.dict(os.environ, {"OTEL_EXPORTER_OTLP_ENDPOINT": "http://example.com:4318"}):
+            status, headers, body = self.request(headers={"traceparent": TRACEPARENT})
+        self.assertEqual(status, 503)
+        self.assertIsNone(headers.get("traceparent"))
+        self.assertEqual(json.loads(body)["reason"], "trace_export_unavailable")
+
+    def test_redirect_cannot_export_to_unreviewed_target(self):
+        class Destination(BaseHTTPRequestHandler):
+            hits = 0
+
+            def do_GET(self):
+                type(self).hits += 1
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def do_POST(self):
+                type(self).hits += 1
+                self.send_response(200)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        class Redirect(BaseHTTPRequestHandler):
+            location = ""
+
+            def do_POST(self):
+                self.rfile.read(int(self.headers.get("Content-Length", "0")))
+                self.send_response(302)
+                self.send_header("Location", self.location)
+                self.send_header("Content-Length", "0")
+                self.end_headers()
+
+            def log_message(self, *args):
+                pass
+
+        destination = ThreadingHTTPServer(("127.0.0.1", 0), Destination)
+        redirector = ThreadingHTTPServer(("127.0.0.1", 0), Redirect)
+        Redirect.location = "http://127.0.0.1:%d/leak" % destination.server_address[1]
+        threads = []
+        for server in (destination, redirector):
+            thread = threading.Thread(target=server.serve_forever, daemon=True)
+            thread.start()
+            threads.append(thread)
+        try:
+            with patch.dict(os.environ, {
+                "OTEL_EXPORTER_OTLP_ENDPOINT": "http://127.0.0.1:%d" % redirector.server_address[1],
+                "HTTP_PROXY": "http://127.0.0.1:9999",
+            }):
+                result = serve.export_span("a" * 32, "b" * 16, "c" * 16, 1, 2)
+            self.assertIsNotNone(result)
+            self.assertEqual(Destination.hits, 0)
+        finally:
+            for server in (redirector, destination):
+                server.shutdown()
+                server.server_close()
+            for thread in threads:
+                thread.join(timeout=3)
 
     def test_unknown_route_404(self):
         status, _, body = self.request(path="/")

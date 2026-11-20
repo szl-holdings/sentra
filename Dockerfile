@@ -1,6 +1,7 @@
 # Rebuilt SZL organ: stdlib-only sentra health service.
 # The base image is digest-pinned; the tag records which library image it is.
 FROM python:3.12-slim@sha256:5e2bdb1b0d542d5039cffb8181c65930093949194a65c365dfb1b0fe13a4fa5b
+LABEL org.opencontainers.image.source="https://github.com/szl-holdings/sentra"
 
 ENV PYTHONUNBUFFERED=1 \
     PYTHONDONTWRITEBYTECODE=1 \

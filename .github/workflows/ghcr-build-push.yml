@@ -118,7 +118,7 @@ jobs:
           }
           EOF
           cosign attest --yes --predicate predicate.json --type slsaprovenance \
-            --registry-referrers-mode=legacy "${IMG}@${DIGEST}"
+            "${IMG}@${DIGEST}"
           cosign verify-attestation --type slsaprovenance \
             --certificate-identity="${{ github.server_url }}/${{ github.repository }}/.github/workflows/ghcr-build-push.yml@${{ github.ref }}" \
             --certificate-oidc-issuer="https://token.actions.githubusercontent.com" \
